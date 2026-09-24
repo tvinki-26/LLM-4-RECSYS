@@ -9,18 +9,30 @@
 <body>
     <div class="container">
         <h1>Content-Based Movie Recommender</h1>
-        <p>Select a movie you like, and we'll find similar ones for you!</p>
-        
+        <p>Pick up to three movies you like, and we'll find similar ones for you!</p>
+
         <div class="controls">
-            <select id="movie-select">
+            <label for="movie-select-1">Movie 1</label>
+            <select id="movie-select-1">
                 <option value="" disabled selected>Select a movie</option>
+            </select>
+            <label for="movie-select-2">Movie 2 (optional)</label>
+            <select id="movie-select-2">
+                <option value="">— none —</option>
+            </select>
+            <label for="movie-select-3">Movie 3 (optional)</label>
+            <select id="movie-select-3">
+                <option value="">— none —</option>
             </select>
             <button id="recommend-btn" onclick="getRecommendations()">Get Recommendations</button>
         </div>
-        
+
         <div id="result-box">
             <p id="result">Please wait, loading data...</p>
         </div>
+
+        <div id="profile-box" hidden></div>
+        <div id="columns"></div>
     </div>
 
     <script src="data.js"></script>
