@@ -29,6 +29,7 @@ async function loadData() {
         }
         const ratingsText = await ratingsResponse.text();
         parseRatingData(ratingsText);
+        computeRatingCounts();
     } catch (error) {
         console.error('Error loading data:', error);
         const resultElement = document.getElementById('result');
@@ -77,5 +78,16 @@ function parseRatingData(text) {
         const timestamp = parseInt(fields[3]);
         
         ratings.push({ userId, itemId, rating, timestamp });
+    }
+}
+
+// Attach the number of ratings to each movie (used as a popularity signal)
+function computeRatingCounts() {
+    const counts = new Map();
+    for (const r of ratings) {
+        counts.set(r.itemId, (counts.get(r.itemId) || 0) + 1);
+    }
+    for (const movie of movies) {
+        movie.ratingCount = counts.get(movie.id) || 0;
     }
 }
