@@ -78,21 +78,82 @@ function cosineSimilarity(a, b) {
 }
 
 // ---------------------------------------------------------------------------
-// TODO (HW3) — User-Based CF.
+// User-Based CF.
 //
 // Return the top-K recommendations for the active user as an array of
-// { title, score }, sorted by score descending.
+// { title, score }, sorted by score descending. The score is the predicted
+// rating on the 1-5 scale.
 //
-// Suggested steps (week3/readme.md section 5.4):
+// Steps (week3/readme.md section 5.4):
 //   1. compare the active user's rating vector against every other user
-//   2. take the N most similar users with positive similarity (e.g. N = 20)
+//   2. take the N most similar users with positive similarity (N = 20),
+//      ignoring users who share fewer than MIN_CO_RATED movies: with only
+//      one or two co-rated movies cosine similarity is close to 1 no matter
+//      what the ratings are, so such "neighbours" are noise
 //   3. for each movie the active user has NOT rated, predict a score as the
-//      similarity-weighted average of those users' ratings
+//      similarity-weighted average of those users' ratings, skipping movies
+//      rated by fewer than MIN_NEIGHBOUR_RATINGS neighbours
 //   4. sort and take the top K
 // ---------------------------------------------------------------------------
+const NUM_NEIGHBOURS = 20;
+const MIN_CO_RATED = 5;
+const MIN_NEIGHBOUR_RATINGS = 3;
+
+// Number of movies rated by both users
+function countCoRated(a, b) {
+    let count = 0;
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== 0 && b[i] !== 0) count++;
+    }
+    return count;
+}
+
 function getUserBasedRecommendations(activeUserId, topK = 5) {
-    // your implementation here
-    return [];
+    const activeRatings = ratingMatrix[activeUserId];
+
+    // Steps 1-2: find the most similar users
+    const neighbours = [];
+    for (let userId = 1; userId <= numUsers; userId++) {
+        if (userId === activeUserId) continue;
+
+        const otherRatings = ratingMatrix[userId];
+        if (countCoRated(activeRatings, otherRatings) < MIN_CO_RATED) continue;
+
+        const similarity = cosineSimilarity(activeRatings, otherRatings);
+        if (similarity > 0) {
+            neighbours.push({ userId, similarity });
+        }
+    }
+    neighbours.sort((x, y) => y.similarity - x.similarity);
+    const topNeighbours = neighbours.slice(0, NUM_NEIGHBOURS);
+
+    // Step 3: predict a rating for every movie the active user has not rated
+    const candidates = [];
+    for (let movieId = 1; movieId <= numMovies; movieId++) {
+        if (activeRatings[movieId] !== 0) continue;
+
+        let weightedSum = 0;
+        let similaritySum = 0;
+        let raters = 0;
+        for (const { userId, similarity } of topNeighbours) {
+            const rating = ratingMatrix[userId][movieId];
+            if (rating === 0) continue;
+            weightedSum += similarity * rating;
+            similaritySum += similarity;
+            raters++;
+        }
+
+        if (raters >= MIN_NEIGHBOUR_RATINGS) {
+            candidates.push({ movieId, score: weightedSum / similaritySum });
+        }
+    }
+
+    // Step 4: sort by predicted rating and keep the top K
+    candidates.sort((x, y) => y.score - x.score);
+    return candidates.slice(0, topK).map(({ movieId, score }) => ({
+        title: movies[movieId - 1].title,
+        score
+    }));
 }
 
 // ---------------------------------------------------------------------------
