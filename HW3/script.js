@@ -1,14 +1,15 @@
 // ---------------------------------------------------------------------------
 // HW3 — Collaborative Filtering core
 //
-// Missing-value strategy (see week3/readme.md section 6). Choose EXACTLY ONE
-// and keep it consistent in cosineSimilarity below:
+// Missing-value strategy (see week3/readme.md section 6):
 //
-//   [ ] use co-rated entries only
-//   [ ] mean imputation
-//   [ ] weight similarity by the number of co-rated items
+//   [x] use co-rated entries only
 //
-// Delete the two you did not choose.
+// A 0 in ratingMatrix means "not rated" (see buildRatingMatrix in data.js).
+// cosineSimilarity ignores every position where either vector is 0, so a
+// missing rating is never treated as a low rating. This is the simplest
+// option and adds no bias from imputed values; its weakness is that two
+// vectors with very few co-rated items can still get a high similarity.
 // ---------------------------------------------------------------------------
 
 // Initialize the application when the window loads
@@ -50,18 +51,30 @@ function populateUserDropdown() {
 }
 
 // ---------------------------------------------------------------------------
-// TODO (HW3) — cosine similarity between two rating vectors.
+// Cosine similarity between two rating vectors.
 //
-// Compare only co-rated (non-zero) entries, per the missing-value strategy
-// you chose above. Return 0 when the denominator is 0 (that is, when the two
-// vectors share no rated items). See week3/readme.md section 5.3.
+// Compares only co-rated (non-zero) entries, per the missing-value strategy
+// above. Returns 0 when the denominator is 0 (that is, when the two vectors
+// share no rated items). See week3/readme.md section 5.3.
 //
-// Inputs: two arrays of equal length (slice the rating matrix column or row).
-// Output: a number in [0, 1].
+// Inputs: two arrays of equal length (a row or column of the rating matrix).
+// Output: a number in [0, 1] (ratings are positive, so it is never negative).
 // ---------------------------------------------------------------------------
 function cosineSimilarity(a, b) {
-    // your implementation here
-    return 0;
+    let dot = 0;
+    let normA = 0;
+    let normB = 0;
+
+    for (let i = 0; i < a.length; i++) {
+        // Skip positions where either side has no rating
+        if (a[i] === 0 || b[i] === 0) continue;
+        dot += a[i] * b[i];
+        normA += a[i] * a[i];
+        normB += b[i] * b[i];
+    }
+
+    const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+    return denominator === 0 ? 0 : dot / denominator;
 }
 
 // ---------------------------------------------------------------------------
