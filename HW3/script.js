@@ -220,37 +220,83 @@ function getItemBasedRecommendations(activeUserId, topK = 5) {
     }));
 }
 
-// Provided — read the selected user and render both recommendation lists
+// Read the selected user and render both recommendation lists
 function getRecommendations() {
     const selectElement = document.getElementById('user-select');
+    const button = document.getElementById('recommend-btn');
     const userId = parseInt(selectElement.value, 10);
 
     if (isNaN(userId)) {
-        renderList('user-based-result', [], 'Please select a user first.');
-        renderList('item-based-result', [], 'Please select a user first.');
+        renderMessage('user-based-result', 'Please select a user first.');
+        renderMessage('item-based-result', 'Please select a user first.');
         return;
     }
 
-    renderList('user-based-result', getUserBasedRecommendations(userId));
-    renderList('item-based-result', getItemBasedRecommendations(userId));
+    // Item-Based CF can take a second or two on the first request, so show a
+    // message and let the browser repaint before the calculation starts
+    renderMessage('user-based-result', 'Calculating...');
+    renderMessage('item-based-result', 'Calculating...');
+    button.disabled = true;
+
+    setTimeout(() => {
+        try {
+            renderList(
+                'user-based-result',
+                getUserBasedRecommendations(userId),
+                'Because you are similar to other users, we recommend:',
+                score => `predicted rating ${score.toFixed(2)}`
+            );
+
+            const liked = getLikedTitles(userId).map(title => `<em>${title}</em>`).join(', ');
+            renderList(
+                'item-based-result',
+                getItemBasedRecommendations(userId),
+                `Because you liked ${liked}, we recommend:`,
+                score => `score ${score.toFixed(1)}`
+            );
+        } finally {
+            button.disabled = false;
+        }
+    }, 20);
 }
 
-// Provided — render a list of { title, score } into the given element
-function renderList(elementId, items, message) {
-    const el = document.getElementById(elementId);
+// Titles of the movies the user rated highest (ties: the more widely rated
+// movie first, so the reader is likely to recognise it)
+function getLikedTitles(userId, count = 3) {
+    const userRatings = ratingMatrix[userId];
+    const rated = [];
+    for (let movieId = 1; movieId <= numMovies; movieId++) {
+        if (userRatings[movieId] === 0) continue;
 
-    if (message) {
-        el.innerHTML = `<p>${message}</p>`;
-        return;
+        let numRatings = 0;
+        for (let otherId = 1; otherId <= numUsers; otherId++) {
+            if (ratingMatrix[otherId][movieId] !== 0) numRatings++;
+        }
+        rated.push({ movieId, rating: userRatings[movieId], numRatings });
     }
 
+    rated.sort((x, y) => y.rating - x.rating || y.numRatings - x.numRatings);
+    return rated.slice(0, count).map(({ movieId }) => movies[movieId - 1].title);
+}
+
+// Show a single message in a result section
+function renderMessage(elementId, message) {
+    document.getElementById(elementId).innerHTML = `<p>${message}</p>`;
+}
+
+// Render an intro line and a list of { title, score } into the given element
+function renderList(elementId, items, intro, formatScore) {
     if (!items || items.length === 0) {
-        el.innerHTML = '<p>No recommendations. (Implement the TODO above.)</p>';
+        renderMessage(
+            elementId,
+            'No recommendations: this user has too few ratings in common with others.'
+        );
         return;
     }
 
     const entries = items
-        .map(item => `<li>${item.title} &mdash; ${Number(item.score).toFixed(3)}</li>`)
+        .map(item => `<li>${item.title} &mdash; ${formatScore(Number(item.score))}</li>`)
         .join('');
-    el.innerHTML = `<ul>${entries}</ul>`;
+    document.getElementById(elementId).innerHTML =
+        `<p class="intro">${intro}</p><ul>${entries}</ul>`;
 }
