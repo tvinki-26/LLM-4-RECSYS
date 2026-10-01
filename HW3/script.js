@@ -141,21 +141,83 @@ function getUserBasedRecommendations(activeUserId, topK = 5) {
 }
 
 // ---------------------------------------------------------------------------
-// TODO (HW3) — Item-Based CF.
+// Item-Based CF.
 //
 // Return the top-K recommendations for the active user as an array of
-// { title, score }, sorted by score descending.
+// { title, score }, sorted by score descending. The score is the aggregated
+// similarity: sum over the user's rated movies of similarity * rating.
 //
-// Suggested steps (week3/readme.md section 5.5):
+// Steps (week3/readme.md section 5.5):
 //   1. for each movie the active user has rated, compute the item-item
 //      similarity against every other movie's rating column
 //   2. for each candidate movie the active user has NOT rated, aggregate the
 //      similarities from the rated movies, weighted by the user's rating
 //   3. sort and take the top K
+//
+// Performance: one recommendation needs (rated movies) x (all movies)
+// similarities over 943-element columns, which takes ~1-2 s for a user with
+// a few hundred ratings. Columns are built once, and each movie's row of
+// similarities is cached, so movies shared with earlier users are free.
 // ---------------------------------------------------------------------------
+let movieColumns = null;                 // movieColumns[movieId][userId] = rating
+const itemSimilarityCache = new Map();   // movieId -> Float32Array of similarities
+
+// Rating column of every movie (ratingMatrix is stored by user rows)
+function buildMovieColumns() {
+    movieColumns = [];
+    for (let movieId = 0; movieId <= numMovies; movieId++) {
+        const column = new Float32Array(numUsers + 1);
+        for (let userId = 1; userId <= numUsers; userId++) {
+            column[userId] = ratingMatrix[userId][movieId];
+        }
+        movieColumns.push(column);
+    }
+}
+
+// Similarity of one movie to every movie, computed once and then cached
+function getItemSimilarities(movieId) {
+    let similarities = itemSimilarityCache.get(movieId);
+    if (!similarities) {
+        similarities = new Float32Array(numMovies + 1);
+        for (let otherId = 1; otherId <= numMovies; otherId++) {
+            if (otherId === movieId) continue;
+            similarities[otherId] = cosineSimilarity(movieColumns[movieId], movieColumns[otherId]);
+        }
+        itemSimilarityCache.set(movieId, similarities);
+    }
+    return similarities;
+}
+
 function getItemBasedRecommendations(activeUserId, topK = 5) {
-    // your implementation here
-    return [];
+    if (!movieColumns) buildMovieColumns();
+
+    const activeRatings = ratingMatrix[activeUserId];
+    const scores = new Float64Array(numMovies + 1);
+
+    // Steps 1-2: add similarity * rating from every movie the user has rated
+    for (let ratedId = 1; ratedId <= numMovies; ratedId++) {
+        const rating = activeRatings[ratedId];
+        if (rating === 0) continue;
+
+        const similarities = getItemSimilarities(ratedId);
+        for (let candidateId = 1; candidateId <= numMovies; candidateId++) {
+            if (activeRatings[candidateId] !== 0) continue;
+            scores[candidateId] += similarities[candidateId] * rating;
+        }
+    }
+
+    // Step 3: sort the unrated movies by aggregated score and keep the top K
+    const candidates = [];
+    for (let movieId = 1; movieId <= numMovies; movieId++) {
+        if (activeRatings[movieId] === 0 && scores[movieId] > 0) {
+            candidates.push({ movieId, score: scores[movieId] });
+        }
+    }
+    candidates.sort((x, y) => y.score - x.score);
+    return candidates.slice(0, topK).map(({ movieId, score }) => ({
+        title: movies[movieId - 1].title,
+        score
+    }));
 }
 
 // Provided — read the selected user and render both recommendation lists
