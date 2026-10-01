@@ -23,7 +23,8 @@ async function loadData() {
         if (!moviesResponse.ok) {
             throw new Error(`Failed to load movie data: ${moviesResponse.status}`);
         }
-        const moviesText = await moviesResponse.text();
+        // u.item is Latin-1 encoded (e.g. "Misérables"), so decode it explicitly instead of as UTF-8
+        const moviesText = new TextDecoder('iso-8859-1').decode(await moviesResponse.arrayBuffer());
         parseItemData(moviesText);
 
         // Load and parse rating data
@@ -61,8 +62,8 @@ function parseItemData(text) {
         const id = parseInt(fields[0]);
         const title = fields[1];
 
-        // Extract genres (last 19 fields)
-        const genreValues = fields.slice(5, 24).map(value => parseInt(value));
+        // Extract genres: skip field 5 ("unknown"), fields 6-23 map to genreNames
+        const genreValues = fields.slice(6, 24).map(value => parseInt(value));
         const genres = genreNames.filter((_, index) => genreValues[index] === 1);
 
         movies.push({ id, title, genres });
