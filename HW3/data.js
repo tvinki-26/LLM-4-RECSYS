@@ -90,18 +90,26 @@ function parseRatingData(text) {
 }
 
 // ---------------------------------------------------------------------------
-// TODO (HW3) — build the user-item rating matrix.
+// Build the user-item rating matrix.
 //
 // Shape: (numUsers + 1) x (numMovies + 1), indexed by raw id, so that
 //   ratingMatrix[userId][movieId] === rating
-// and a missing entry is 0. MovieLens ratings are 1-5, so 0 is unambiguous.
+// and a missing entry is 0. MovieLens ratings are 1-5, so 0 is unambiguous:
+// cosineSimilarity in script.js treats 0 as "not rated" and compares
+// co-rated entries only. Row 0 and column 0 are unused (ids start at 1).
 //
-// If you adopt a different convention (for example mean imputation, which
-// week3/readme.md section 6 allows), document it here and keep
-// cosineSimilarity in script.js consistent with it.
-//
-// Store the result in the global variable `ratingMatrix`.
+// Each row is a Float32Array: zero-filled on creation and compact
+// (944 x 1683 cells instead of ~1.6M boxed numbers).
 // ---------------------------------------------------------------------------
 function buildRatingMatrix() {
-    // your implementation here
+    ratingMatrix = [];
+    for (let userId = 0; userId <= numUsers; userId++) {
+        ratingMatrix.push(new Float32Array(numMovies + 1));
+    }
+
+    for (const { userId, itemId, rating } of ratings) {
+        // Skip ratings that point outside the matrix (unknown movie id)
+        if (itemId < 1 || itemId > numMovies) continue;
+        ratingMatrix[userId][itemId] = rating;
+    }
 }
