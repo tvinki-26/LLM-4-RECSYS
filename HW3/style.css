@@ -73,6 +73,11 @@ p {
     background-color: #2980b9;
 }
 
+#recommend-btn:disabled {
+    background-color: #95a5a6;
+    cursor: wait;
+}
+
 #result-box {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -102,6 +107,10 @@ p {
 
 .result-column ul {
     padding-left: 20px;
+}
+
+.result-column .intro {
+    margin-bottom: 8px;
 }
 
 @media (max-width: 640px) {
